@@ -1,36 +1,26 @@
+/* LoRaWAN Class A Hello World example
+ *
+ * Sends a message every 30 seconds
+ *
+ * This example code will just test the LoRaWAN stack STM32 using STM32LoRaWAN
+ */
 #include <Arduino.h>
-#include "HardwareSerial.h"
+#include <STM32RTC.h>
+#include <STM32LoRaWAN.h>
 
-HardwareSerial mySerial {PB7, PB6};
-unsigned long last_millis {0};
-bool state {true};
-static constexpr unsigned long blink_duration {1000};
 
-void setup(void)
-{
-    mySerial.begin(115200);
-    delay(100);
-    pinMode(PB5, OUTPUT);
-    mySerial.println(F("Booted!"));
+// Blinky LED for now
+//#define LED_BUILTIN PB5
 
-    last_millis = millis();
+
+void setup(void){
+pinMode(PB5, OUTPUT);
+}
+void loop(void){
+digitalWrite(PB5, HIGH);
+delay(1000);
+digitalWrite(PB5, LOW);
+delay(1000);
 }
 
-void loop(void)
-{
 
-    if (millis() - last_millis > blink_duration){
-        state = !state;
-        digitalWrite(PB5, state);
-        last_millis += blink_duration;
-
-        mySerial.print(F("Loop B)"));
-        mySerial.println(millis());
-    }
-
-    while (mySerial.available() > 0){
-        mySerial.print(mySerial.read());
-    }
-
-    
-}

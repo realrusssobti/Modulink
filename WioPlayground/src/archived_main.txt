@@ -1,0 +1,93 @@
+#include <Arduino.h>
+#include "HardwareSerial.h"
+
+HardwareSerial mySerial {PB7, PB6};
+unsigned long last_millis {0};
+bool oldState {false};
+static constexpr unsigned long blink_duration {1000};
+
+void setup(void)
+{
+    mySerial.begin(115200);
+    delay(100);
+    pinMode(PB5, OUTPUT);
+	pinMode(PB10, OUTPUT);
+	pinMode(PA9, OUTPUT);
+    mySerial.println(F("Booted!"));
+
+    last_millis = millis();
+	bool oldState = false;
+}
+
+/**
+ * @brief Function to read a string from the serial port, check for ON or OFF and return the corresponding boolean value
+ *
+ */
+
+bool readSerial(bool oldState)
+{
+	String input = mySerial.readStringUntil('\n');
+	input.trim();
+	input.toUpperCase();
+	if (input == "ON")
+	{
+		mySerial.println(F("Relays ON"));
+		return true;
+	}
+	else if (input == "OFF")
+	{
+		mySerial.println(F("Relays OFF"));
+		return false;
+	}
+	else
+	{
+		return oldState;
+	}
+}
+
+/**
+ * @brief Main loop
+ *
+ */
+
+/**
+ * @brief Function to control the relays based on the input from the serial port
+ */
+bool controlRelays(bool oldState)
+// Read the serial port
+{
+	bool relayState = readSerial(oldState);
+	if (relayState) {
+		digitalWrite(PB5, LOW);
+		digitalWrite(PB10, LOW);
+		digitalWrite(PA9, HIGH);
+	} else {
+		digitalWrite(PB5, HIGH);
+		digitalWrite(PB10, HIGH);
+		digitalWrite(PA9, LOW);
+	}
+	return relayState;
+}
+
+void loop(void)
+{
+
+	// Control the relays
+	oldState = controlRelays(oldState);
+
+//    if (millis() - last_millis > blink_duration){
+//        state = !state;
+//        digitalWrite(PB5, state);
+//		digitalWrite(PB10, state);
+//        last_millis += blink_duration;
+//
+//        mySerial.print(F("Loop B)"));
+//        mySerial.println(millis());
+//    }
+//
+//    while (mySerial.available() > 0){
+//        mySerial.print(mySerial.read());
+//    }
+
+
+}
