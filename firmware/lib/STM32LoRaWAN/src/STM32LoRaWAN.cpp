@@ -168,9 +168,11 @@ bool STM32LoRaWAN::joinOTAAAsync()
 
   // Starts the OTAA join procedure
   LoRaMacStatus_t res = LoRaMacMlmeRequest(&mlmeReq);
-  if (res != LORAMAC_STATUS_OK)
-    return failure("Join request failed: %s\r\n", toString(res));
-
+  if (res != LORAMAC_STATUS_OK) {
+	  // save the last failure to lastFailure
+		strcpy(lastFailure,toString(res));
+	  return failure("Join request failed: %s\r\n", toString(res));
+  }
   return true;
 }
 

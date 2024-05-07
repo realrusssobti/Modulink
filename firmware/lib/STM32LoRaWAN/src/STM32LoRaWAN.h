@@ -89,6 +89,7 @@ class STM32LoRaWAN : public Stream {
      * board design, this cannot be automatically checked by the
      * software.
      */
+     char lastFailure[1024];
     bool begin(_lora_band band);
     /// @}
 
