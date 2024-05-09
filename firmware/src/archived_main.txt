@@ -1,93 +1,153 @@
+/* LoRaWAN Class A Hello World example
+ *
+ * Sends a message every 30 seconds
+ *
+ * This example code will just test the LoRaWAN stack STM32 using STM32LoRaWAN
+ */
 #include <Arduino.h>
+#include <STM32RTC.h>
+#include <STM32LoRaWAN.h>
 #include "HardwareSerial.h"
-
+#include "HBridge.h"
 HardwareSerial mySerial {PB7, PB6};
-unsigned long last_millis {0};
-bool oldState {false};
-static constexpr unsigned long blink_duration {1000};
 
-void setup(void)
-{
-    mySerial.begin(115200);
-    delay(100);
-    pinMode(PB5, OUTPUT);
-	pinMode(PB10, OUTPUT);
-	pinMode(PA9, OUTPUT);
-    mySerial.println(F("Booted!"));
+// Set up the H-Bridge
+HBridge valve(PB10, PA9);
+// LED is on PB5
+#define LED_BUILTIN PB5
+int valve_state = 0; // this is the state of the valve for now (0 = closed, 1 = open)
+bool update_valve = false; // does an update need to be sent to the valve?
 
-    last_millis = millis();
-	bool oldState = false;
-}
 
-/**
- * @brief Function to read a string from the serial port, check for ON or OFF and return the corresponding boolean value
- *
- */
+STM32LoRaWAN modem; // get ready to set up the modem
 
-bool readSerial(bool oldState)
-{
-	String input = mySerial.readStringUntil('\n');
-	input.trim();
-	input.toUpperCase();
-	if (input == "ON")
-	{
-		mySerial.println(F("Relays ON"));
-		return true;
+//#include "arduino_secrets.h"
+// Please enter your sensitive data in the Secret tab or arduino_secrets.h
+String appEui = "DEADBEEFDEADBEEF";
+String appKey = "BEEFBEEFBEEFBEEFBEEFBEEFBEEFBEEF";
+
+
+// Blinky LED for now
+//#define LED_BUILTIN PB5
+
+void setup() {
+
+	// put your setup code here, to run once:
+	pinMode(LED_BUILTIN, OUTPUT);
+	digitalWrite(LED_BUILTIN, LOW);
+	// make sure the valve is closed
+	valve.actuate(0, 0);
+
+	mySerial.begin(115200);
+
+	while (!mySerial);
+
+	mySerial.println("Welcome to MKRWAN1300/1310 first configuration sketch");
+
+	mySerial.println("Register to your favourite LoRa network and we are ready to go!");
+
+	// change this to your regional band (eg. US915, AS923, ...)
+
+	if (!modem.begin(US915)) {
+
+		mySerial.println("Failed to start module");
+
+		while (1) {}
+
+	};
+
+	mySerial.print("Your module version is: ");
+
+	mySerial.println(modem.version());
+
+	mySerial.print("Your device EUI is: ");
+
+	mySerial.println(modem.deviceEUI());
+
+	int connected;
+		appKey.trim();
+
+		appEui.trim();
+		connected = modem.joinOTAA(appEui, appKey);
+
+	if (!connected) {
+
+		mySerial.println("Uh-Oh, Connection failed. Check your keys and distance!");
+
+		while (1) {}
+
 	}
-	else if (input == "OFF")
-	{
-		mySerial.println(F("Relays OFF"));
-		return false;
-	}
-	else
-	{
-		return oldState;
-	}
-}
 
-/**
- * @brief Main loop
- *
- */
+	mySerial.println("You're connected to the network");
+	String message = "Hello World";
+	modem.beginPacket();
+	modem.write((uint8_t*)message.c_str(), message.length());
+	int err = modem.endPacket(true); // true for confirmed packet
 
-/**
- * @brief Function to control the relays based on the input from the serial port
- */
-bool controlRelays(bool oldState)
-// Read the serial port
-{
-	bool relayState = readSerial(oldState);
-	if (relayState) {
-		digitalWrite(PB5, LOW);
-		digitalWrite(PB10, LOW);
-		digitalWrite(PA9, HIGH);
+
+
+	if (err > 0) {
+
+		mySerial.println("Message sent correctly!");
+
 	} else {
-		digitalWrite(PB5, HIGH);
-		digitalWrite(PB10, HIGH);
-		digitalWrite(PA9, LOW);
+
+		mySerial.println("Error sending message :(");
+
 	}
-	return relayState;
+	update_valve = true;
 }
 
-void loop(void)
-{
+void loop() {
+	// Set the builtin LED to the valve state
+	digitalWrite(LED_BUILTIN, !valve_state);
+	// Actuate the valve
+	if(update_valve) {
+		valve.actuate(valve_state, 100);
+		// Wait 10ms
+		delay(100);
+		valve.actuate(valve_state, 0);
+		update_valve = false;
+	}
+	// Send "open" if the valve state is 1 and "closed" if the valve state is 0
+	String message = valve_state == 1 ? "open" : "closed";
+	modem.beginPacket();
+	modem.write((uint8_t*)message.c_str(), message.length());
+	int err = modem.endPacket(true); // true for confirmed packet
 
-	// Control the relays
-	oldState = controlRelays(oldState);
+	if (err > 0) {
+		mySerial.println("Message sent correctly!");
+	} else {
+		mySerial.println("Error sending message :(");
+	}
 
-//    if (millis() - last_millis > blink_duration){
-//        state = !state;
-//        digitalWrite(PB5, state);
-//		digitalWrite(PB10, state);
-//        last_millis += blink_duration;
-//
-//        mySerial.print(F("Loop B)"));
-//        mySerial.println(millis());
-//    }
-//
-//    while (mySerial.available() > 0){
-//        mySerial.print(mySerial.read());
-//    }
+	// Read a packet
+	int packetSize = modem.parsePacket();
+	// If there is a packet, read it
+	if (packetSize) {
+		mySerial.print("Received packet: ");
+		// Read the packet into a buffer
+		uint8_t  pkt[packetSize];
+		modem.read(pkt, packetSize);
+		// Convert to char array
+		char packet[packetSize];
+		for (int i = 0; i < packetSize; i++) {
+			packet[i] = (char)pkt[i];
+		}
+		update_valve = true;
+		// Print the packet
+		mySerial.println(packet);
+		// check the first part for "open" or "closed"
+		if (strncmp(packet, "open", 4) == 0) {
+			valve_state = 1;
+		} else if (strncmp(packet, "closed", 6) == 0) {
+			valve_state = 0;
+		}
 
 
+	}
+
+	// Wait 10 seconds
+	delay(10000);
+//	valve_state = !valve_state;
 }

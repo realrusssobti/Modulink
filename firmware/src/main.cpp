@@ -8,8 +8,11 @@
 #include <STM32RTC.h>
 #include <STM32LoRaWAN.h>
 #include "HardwareSerial.h"
-
+#include "HBridge.h"
 HardwareSerial mySerial {PB7, PB6};
+
+// Set up the H-Bridge
+HBridge valve(PB10, PA9);
 // LED is on PB5
 #define LED_BUILTIN PB5
 int valve_state = 0; // this is the state of the valve for now (0 = closed, 1 = open)
@@ -31,6 +34,8 @@ void setup() {
 	// put your setup code here, to run once:
 	pinMode(LED_BUILTIN, OUTPUT);
 	digitalWrite(LED_BUILTIN, LOW);
+	// make sure the valve is closed
+	valve.actuate(0, 0);
 
 	mySerial.begin(115200);
 
@@ -57,80 +62,86 @@ void setup() {
 	mySerial.print("Your device EUI is: ");
 
 	mySerial.println(modem.deviceEUI());
-
-	int connected;
-		appKey.trim();
-
-		appEui.trim();
-		connected = modem.joinOTAA(appEui, appKey);
-
-	if (!connected) {
-
-		mySerial.println("Uh-Oh, Connection failed. Check your keys and distance!");
-
-		while (1) {}
-
-	}
-
-	mySerial.println("You're connected to the network");
-	String message = "Hello World";
-	modem.beginPacket();
-	modem.write((uint8_t*)message.c_str(), message.length());
-	int err = modem.endPacket(true); // true for confirmed packet
-
-
-
-	if (err > 0) {
-
-		mySerial.println("Message sent correctly!");
-
-	} else {
-
-		mySerial.println("Error sending message :(");
-
-	}
+//
+//	int connected;
+//		appKey.trim();
+//
+//		appEui.trim();
+//		connected = modem.joinOTAA(appEui, appKey);
+//
+//	if (!connected) {
+//
+//		mySerial.println("Uh-Oh, Connection failed. Check your keys and distance!");
+//
+//		while (1) {}
+//
+//	}
+//
+//	mySerial.println("You're connected to the network");
+//	String message = "Hello World";
+//	modem.beginPacket();
+//	modem.write((uint8_t*)message.c_str(), message.length());
+//	int err = modem.endPacket(true); // true for confirmed packet
+//
+//
+//
+//	if (err > 0) {
+//
+//		mySerial.println("Message sent correctly!");
+//
+//	} else {
+//
+//		mySerial.println("Error sending message :(");
+//
+//	}
 }
 
 void loop() {
 	// Set the builtin LED to the valve state
 	digitalWrite(LED_BUILTIN, !valve_state);
-
-	// Send "open" if the valve state is 1 and "closed" if the valve state is 0
-	String message = valve_state == 1 ? "open" : "closed";
-	modem.beginPacket();
-	modem.write((uint8_t*)message.c_str(), message.length());
-	int err = modem.endPacket(true); // true for confirmed packet
-
-	if (err > 0) {
-		mySerial.println("Message sent correctly!");
-	} else {
-		mySerial.println("Error sending message :(");
-	}
-
-	// Read a packet
-	int packetSize = modem.parsePacket();
-	// If there is a packet, read it
-	if (packetSize) {
-		mySerial.print("Received packet: ");
-		// Read the packet into a buffer
-		uint8_t  pkt[packetSize];
-		modem.read(pkt, packetSize);
-		// Convert to char array
-		char packet[packetSize];
-		for (int i = 0; i < packetSize; i++) {
-			packet[i] = (char)pkt[i];
-		}
-		// Print the packet
-		mySerial.println(packet);
-		// check the first part for "open" or "closed"
-		if (strncmp(packet, "open", 4) == 0) {
-			valve_state = 1;
-		} else if (strncmp(packet, "closed", 6) == 0) {
-			valve_state = 0;
-		}
-
-	}
+	// Actuate the valve
+	valve.actuate(valve_state, 100);
+	// Wait 10ms
+	delay(5000);
+	valve.actuate(valve_state, 0);
+//
+//	// Send "open" if the valve state is 1 and "closed" if the valve state is 0
+//	String message = valve_state == 1 ? "open" : "closed";
+//	modem.beginPacket();
+//	modem.write((uint8_t*)message.c_str(), message.length());
+//	int err = modem.endPacket(true); // true for confirmed packet
+//
+//	if (err > 0) {
+//		mySerial.println("Message sent correctly!");
+//	} else {
+//		mySerial.println("Error sending message :(");
+//	}
+//
+//	// Read a packet
+//	int packetSize = modem.parsePacket();
+//	// If there is a packet, read it
+//	if (packetSize) {
+//		mySerial.print("Received packet: ");
+//		// Read the packet into a buffer
+//		uint8_t  pkt[packetSize];
+//		modem.read(pkt, packetSize);
+//		// Convert to char array
+//		char packet[packetSize];
+//		for (int i = 0; i < packetSize; i++) {
+//			packet[i] = (char)pkt[i];
+//		}
+//		// Print the packet
+//		mySerial.println(packet);
+//		// check the first part for "open" or "closed"
+//		if (strncmp(packet, "open", 4) == 0) {
+//			valve_state = 1;
+//		} else if (strncmp(packet, "closed", 6) == 0) {
+//			valve_state = 0;
+//		}
+//
+//	}
 
 	// Wait 10 seconds
-	delay(10000);
+	delay(1000);
+	valve_state = !valve_state;
 }
