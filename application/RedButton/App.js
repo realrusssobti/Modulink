@@ -23,29 +23,27 @@ import clickedGreen from './clickedGreen.png'; // Adjust path as needed
 export default function App() {
   const [currentImage, setCurrentImage] = useState(unclicked);
 
+  function turnOnLED() {
+    fetch('http://192.168.4.1/H')
+      .then(response => response.text())  // Assuming the server responds with some text
+      .then(data => console.log("LED turned on:", data))
+      .catch(error => console.error('Error turning on LED:', error));
+  }
+
+  function turnOffLED() {
+    fetch('http://192.168.4.1/L')
+      .then(response => response.text())  // Assuming the server responds with some text
+      .then(data => console.log("LED turned off:", data))
+      .catch(error => console.error('Error turning off LED:', error));
+  }
 
   const toggleImage = () => {
     if(currentImage == unclicked) {
       setCurrentImage(clicked); // First, change to the clicked image
-      
-      // fetch('http://10.144.115.158:3000/')
-      // .then(response => response.text())
-      // .then(text => console.log(text));
 
       const dataToSend = { color: 'Red button clicked.'};
 
-      fetch('http://10.144.115.158:3000/data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dataToSend),
-      })
-      .then((response) => response.json())
-      .then((data) => console.log(data))
-      .catch((error) => {
-        console.error('Error:', error);
-      });
+      turnOffLED();
 
       setTimeout(() => {
         setCurrentImage(unclickedGreen); // After 100ms, change back to the unclicked image
@@ -53,24 +51,10 @@ export default function App() {
     }
     else if (currentImage == unclickedGreen) {
       setCurrentImage(clickedGreen); // First, change to the clicked image
-      // fetch('http://10.144.115.158:3000/')
-      // .then(response => response.text())
-      // .then(text => console.log(text));
 
       const dataToSend = { color: 'Green button clicked.'};
 
-      fetch('http://10.144.115.158:3000/data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dataToSend),
-      })
-      .then((response) => response.json())
-      .then((data) => console.log(data))
-      .catch((error) => {
-        console.error('Error:', error);
-      });
+      turnOnLED();
 
       setTimeout(() => {
         setCurrentImage(unclicked); // After 100ms, change back to the unclicked image
