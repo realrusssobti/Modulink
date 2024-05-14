@@ -22,13 +22,64 @@ STM32LoRaWAN modem; // get ready to set up the modem
 
 //#include "arduino_secrets.h"
 // Please enter your sensitive data in the Secret tab or arduino_secrets.h
-String appEui = "DEADBEEFDEADBEEF";
-String appKey = "BEEFBEEFBEEFBEEFBEEFBEEFBEEFBEEF";
+
+
+
+// LoRa OTAA Join Function
+int joinOTAA() {
+	if !modem.begin(US915) {
+		mySerial.println("Failed to start module");
+		return -1;
+	}
+	mySerial.print("Your device EUI is: ");
+	mySerial.println(modem.deviceEUI());
+	String appEui = "DEADBEEFDEADBEEF";
+	String appKey = "BEEFBEEFBEEFBEEFBEEFBEEFBEEFBEEF";
+	int connected;
+	appKey.trim();
+	appEui.trim();
+	connected = modem.joinOTAA(appEui, appKey);
+	return connected;
+}
+
+// LoRa Send Message to Server
+int sendMessage(String message) {
+	modem.beginPacket();
+	modem.write((uint8_t*)message.c_str(), message.length());
+	int err = modem.endPacket(true); // true for confirmed packet
+	if (err > 0) {
+		mySerial.println("Message sent correctly!");
+	} else {
+		mySerial.println("Error sending message :(");
+	}
+	return err;
+}
+
+// Send a status message as a byte array - this should ideally be something per the Cayenne LPP format
+int sendStatus(uint8_t* status, int length) {
+	modem.beginPacket();
+	modem.write(status, length);
+	int err = modem.endPacket(true); // true for confirmed packet
+	if (err > 0) {
+		mySerial.println("Message sent correctly!");
+	} else {
+		mySerial.println("Error sending message :(");
+	}
+	return err;
+}
+
+
+void control_valve(bool state) {
+	valve.actuate(state, 100); // 0 is closed, 1 is open per HBridge.cpp implementation
+	digitalWrite(LED_BUILTIN, !state); // LED is active low!
+	// wait before turning off current to the valve
+	delay(5000);
+	valve.actuate(state, 0); // same state, but 0% speed == latch it!
+}
 
 
 // Blinky LED for now
 //#define LED_BUILTIN PB5
-
 void setup() {
 
 	// put your setup code here, to run once:
@@ -41,69 +92,29 @@ void setup() {
 
 	while (!mySerial);
 
-	mySerial.println("Welcome to MKRWAN1300/1310 first configuration sketch");
-
-	mySerial.println("Register to your favourite LoRa network and we are ready to go!");
-
 	// change this to your regional band (eg. US915, AS923, ...)
 
-	if (!modem.begin(US915)) {
+	// Set up the modem
+	int connected =	joinOTAA();
+	if (!connected) {
 
-		mySerial.println("Failed to start module");
+		mySerial.println("Uh-Oh, Connection failed. Check your keys and distance!");
 
 		while (1) {}
 
-	};
+	}
 
-	mySerial.print("Your module version is: ");
-
-	mySerial.println(modem.version());
-
-	mySerial.print("Your device EUI is: ");
-
-	mySerial.println(modem.deviceEUI());
-//
-//	int connected;
-//		appKey.trim();
-//
-//		appEui.trim();
-//		connected = modem.joinOTAA(appEui, appKey);
-//
-//	if (!connected) {
-//
-//		mySerial.println("Uh-Oh, Connection failed. Check your keys and distance!");
-//
-//		while (1) {}
-//
-//	}
-//
-//	mySerial.println("You're connected to the network");
-//	String message = "Hello World";
-//	modem.beginPacket();
-//	modem.write((uint8_t*)message.c_str(), message.length());
-//	int err = modem.endPacket(true); // true for confirmed packet
-//
-//
-//
-//	if (err > 0) {
-//
-//		mySerial.println("Message sent correctly!");
-//
-//	} else {
-//
-//		mySerial.println("Error sending message :(");
-//
-//	}
+	mySerial.println("You're connected to the network");
+	String message = "Hello World";
+	sendMessage(message);
 }
 
 void loop() {
 	// Set the builtin LED to the valve state
-	digitalWrite(LED_BUILTIN, !valve_state);
-	// Actuate the valve
-	valve.actuate(valve_state, 100);
-	// Wait 10ms
-	delay(5000);
-	valve.actuate(valve_state, 0);
+	control_valve(valve_state);
+
+	sendMessage()
+
 //
 //	// Send "open" if the valve state is 1 and "closed" if the valve state is 0
 //	String message = valve_state == 1 ? "open" : "closed";
